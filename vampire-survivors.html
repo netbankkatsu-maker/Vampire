@@ -284,7 +284,7 @@ canvas{display:block;}
 // マルチプレイヤー設定
 // Vercelの環境変数 MP_SERVER_URL で上書き可能
 // ═══════════════════════════════════════════════
-var MULTIPLAYER_SERVER_URL = 'ws://localhost:8080';
+var MULTIPLAYER_SERVER_URL = 'wss://vampire-ezs2.onrender.com';
 var _configLoaded = false;
 var _configPromise = (function() {
   return fetch('/api/config')
