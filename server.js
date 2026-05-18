@@ -1,17 +1,28 @@
 'use strict';
 
+var http = require('http');
 var WebSocket = require('ws');
 
 var PORT = process.env.PORT || 8080;
-var server = new WebSocket.Server({ port: PORT });
+
+// HTTP server (Render.com health check + WebSocket upgrade)
+var httpServer = http.createServer(function(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', rooms: rooms.size, uptime: process.uptime() }));
+    return;
+  }
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('DARK SURVIVOR Multiplayer Server');
+});
+
+var wss = new WebSocket.Server({ server: httpServer });
 
 // rooms: Map<roomId, { id, passphrase, hostSocketId, players[], state, createdAt }>
 var rooms = new Map();
-// socketToId: WeakMap<ws, socketId>
 var socketToId = new WeakMap();
-// idToSocket: Map<socketId, ws>
 var idToSocket = new Map();
-// playerToRoom: Map<socketId, roomId>
 var playerToRoom = new Map();
 
 var WORDS = [
@@ -30,9 +41,7 @@ function shortId() {
 }
 
 function send(ws, obj) {
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify(obj));
-  }
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
 }
 
 function broadcastToRoom(roomId, obj, excludeSocketId) {
@@ -41,8 +50,7 @@ function broadcastToRoom(roomId, obj, excludeSocketId) {
   for (var i = 0; i < room.players.length; i++) {
     var p = room.players[i];
     if (p.socketId === excludeSocketId) continue;
-    var ws = idToSocket.get(p.socketId);
-    send(ws, obj);
+    send(idToSocket.get(p.socketId), obj);
   }
 }
 
@@ -52,9 +60,7 @@ function broadcastToAll(roomId, obj) {
 
 function findRoomByPassphrase(phrase) {
   var result = null;
-  rooms.forEach(function(room) {
-    if (room.passphrase === phrase) result = room;
-  });
+  rooms.forEach(function(room) { if (room.passphrase === phrase) result = room; });
   return result;
 }
 
@@ -67,10 +73,7 @@ function removePlayerFromRoom(socketId) {
   room.players = room.players.filter(function(p) { return p.socketId !== socketId; });
   playerToRoom.delete(socketId);
 
-  if (room.players.length === 0) {
-    rooms.delete(roomId);
-    return;
-  }
+  if (room.players.length === 0) { rooms.delete(roomId); return; }
 
   broadcastToAll(roomId, { type: 'player_left', socketId: socketId });
 
@@ -81,7 +84,7 @@ function removePlayerFromRoom(socketId) {
   }
 }
 
-server.on('connection', function(ws) {
+wss.on('connection', function(ws) {
   var socketId = shortId();
   socketToId.set(ws, socketId);
   idToSocket.set(socketId, ws);
@@ -100,29 +103,11 @@ server.on('connection', function(ws) {
         }
         var roomId = shortId();
         var passphrase = generatePassphrase();
-        var player = {
-          socketId: socketId,
-          name: msg.name || 'Host',
-          charId: msg.charId || '',
-          ready: false
-        };
-        var room = {
-          id: roomId,
-          passphrase: passphrase,
-          hostSocketId: socketId,
-          players: [player],
-          state: 'waiting',
-          createdAt: Date.now()
-        };
+        var player = { socketId: socketId, name: msg.name || 'Host', charId: msg.charId || '', ready: false };
+        var room = { id: roomId, passphrase: passphrase, hostSocketId: socketId, players: [player], state: 'waiting', createdAt: Date.now() };
         rooms.set(roomId, room);
         playerToRoom.set(socketId, roomId);
-        send(ws, {
-          type: 'room_created',
-          roomId: roomId,
-          passphrase: passphrase,
-          mySocketId: socketId,
-          players: room.players
-        });
+        send(ws, { type: 'room_created', roomId: roomId, passphrase: passphrase, mySocketId: socketId, players: room.players });
         break;
       }
 
@@ -133,34 +118,13 @@ server.on('connection', function(ws) {
         }
         var phrase = (msg.passphrase || '').trim().toUpperCase();
         var targetRoom = findRoomByPassphrase(phrase);
-        if (!targetRoom) {
-          send(ws, { type: 'error', code: 'ROOM_NOT_FOUND', message: '部屋が見つかりません: ' + phrase });
-          return;
-        }
-        if (targetRoom.state !== 'waiting') {
-          send(ws, { type: 'error', code: 'GAME_ALREADY_STARTED', message: 'ゲームはすでに開始されています' });
-          return;
-        }
-        if (targetRoom.players.length >= 4) {
-          send(ws, { type: 'error', code: 'ROOM_FULL', message: '部屋が満員です' });
-          return;
-        }
-        var newPlayer = {
-          socketId: socketId,
-          name: msg.name || 'Player',
-          charId: msg.charId || '',
-          ready: false
-        };
+        if (!targetRoom) { send(ws, { type: 'error', code: 'ROOM_NOT_FOUND', message: '部屋が見つかりません: ' + phrase }); return; }
+        if (targetRoom.state !== 'waiting') { send(ws, { type: 'error', code: 'GAME_ALREADY_STARTED', message: 'ゲームはすでに開始されています' }); return; }
+        if (targetRoom.players.length >= 4) { send(ws, { type: 'error', code: 'ROOM_FULL', message: '部屋が満員です' }); return; }
+        var newPlayer = { socketId: socketId, name: msg.name || 'Player', charId: msg.charId || '', ready: false };
         targetRoom.players.push(newPlayer);
         playerToRoom.set(socketId, targetRoom.id);
-        send(ws, {
-          type: 'room_joined',
-          roomId: targetRoom.id,
-          passphrase: targetRoom.passphrase,
-          mySocketId: socketId,
-          hostSocketId: targetRoom.hostSocketId,
-          players: targetRoom.players
-        });
+        send(ws, { type: 'room_joined', roomId: targetRoom.id, passphrase: targetRoom.passphrase, mySocketId: socketId, hostSocketId: targetRoom.hostSocketId, players: targetRoom.players });
         broadcastToRoom(targetRoom.id, { type: 'player_joined', player: newPlayer }, socketId);
         break;
       }
@@ -173,12 +137,7 @@ server.on('connection', function(ws) {
             for (var i = 0; i < r.players.length; i++) {
               if (r.players[i].socketId === r.hostSocketId) { hostPlayer = r.players[i]; break; }
             }
-            list.push({
-              roomId: r.id,
-              passphrase: r.passphrase,
-              playerCount: r.players.length,
-              hostName: hostPlayer ? hostPlayer.name : 'Host'
-            });
+            list.push({ roomId: r.id, passphrase: r.passphrase, playerCount: r.players.length, hostName: hostPlayer ? hostPlayer.name : 'Host' });
           }
         });
         send(ws, { type: 'room_list', rooms: list });
@@ -190,24 +149,14 @@ server.on('connection', function(ws) {
         if (!rid) return;
         var rm = rooms.get(rid);
         if (!rm) return;
-        var updated = false;
         for (var i = 0; i < rm.players.length; i++) {
           if (rm.players[i].socketId === socketId) {
             rm.players[i].ready = true;
             if (msg.charId) rm.players[i].charId = msg.charId;
             if (msg.name) rm.players[i].name = msg.name;
-            updated = true;
+            broadcastToAll(rid, { type: 'player_ready_update', socketId: socketId, ready: true, charId: msg.charId || '', name: msg.name || '' });
             break;
           }
-        }
-        if (updated) {
-          broadcastToAll(rid, {
-            type: 'player_ready_update',
-            socketId: socketId,
-            ready: true,
-            charId: msg.charId || '',
-            name: msg.name || ''
-          });
         }
         break;
       }
@@ -217,24 +166,16 @@ server.on('connection', function(ws) {
         if (!rid2) return;
         var rm2 = rooms.get(rid2);
         if (!rm2) return;
-        if (rm2.hostSocketId !== socketId) {
-          send(ws, { type: 'error', code: 'NOT_HOST', message: 'ホストのみ開始できます' });
-          return;
-        }
+        if (rm2.hostSocketId !== socketId) { send(ws, { type: 'error', code: 'NOT_HOST', message: 'ホストのみ開始できます' }); return; }
         rm2.state = 'playing';
-        var seed = Math.floor(Math.random() * 2147483647);
-        broadcastToAll(rid2, { type: 'game_started', seed: seed });
+        broadcastToAll(rid2, { type: 'game_started', seed: Math.floor(Math.random() * 2147483647) });
         break;
       }
 
       case 'relay': {
         var rid3 = playerToRoom.get(socketId);
         if (!rid3) return;
-        broadcastToRoom(rid3, {
-          type: 'relayed',
-          fromSocketId: socketId,
-          payload: msg.payload
-        }, socketId);
+        broadcastToRoom(rid3, { type: 'relayed', fromSocketId: socketId, payload: msg.payload }, socketId);
         break;
       }
 
@@ -243,42 +184,30 @@ server.on('connection', function(ws) {
         if (!rid4) return;
         var rm4 = rooms.get(rid4);
         if (rm4 && rm4.hostSocketId === socketId) {
-          rooms.delete(rid4);
           broadcastToRoom(rid4, { type: 'game_ended' }, socketId);
           rm4.players.forEach(function(p) { playerToRoom.delete(p.socketId); });
+          rooms.delete(rid4);
         }
         break;
       }
 
-      case 'ping': {
-        send(ws, { type: 'pong' });
-        break;
-      }
+      case 'ping': send(ws, { type: 'pong' }); break;
     }
   });
 
-  ws.on('close', function() {
-    removePlayerFromRoom(socketId);
-    idToSocket.delete(socketId);
-  });
-
-  ws.on('error', function() {
-    removePlayerFromRoom(socketId);
-    idToSocket.delete(socketId);
-  });
+  ws.on('close', function() { removePlayerFromRoom(socketId); idToSocket.delete(socketId); });
+  ws.on('error', function() { removePlayerFromRoom(socketId); idToSocket.delete(socketId); });
 });
 
 // Stale room cleanup every 30 minutes
 setInterval(function() {
   var now = Date.now();
   rooms.forEach(function(room, id) {
-    if (room.state === 'waiting' && now - room.createdAt > 3 * 60 * 60 * 1000) {
-      rooms.delete(id);
-    }
-    if (room.state === 'playing' && now - room.createdAt > 40 * 60 * 1000) {
-      rooms.delete(id);
-    }
+    if (room.state === 'waiting' && now - room.createdAt > 3 * 60 * 60 * 1000) rooms.delete(id);
+    if (room.state === 'playing' && now - room.createdAt > 40 * 60 * 1000) rooms.delete(id);
   });
 }, 30 * 60 * 1000);
 
-console.log('DARK SURVIVOR relay server listening on port ' + PORT);
+httpServer.listen(PORT, function() {
+  console.log('DARK SURVIVOR relay server listening on port ' + PORT);
+});

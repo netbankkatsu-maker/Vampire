@@ -281,9 +281,20 @@ canvas{display:block;}
 
 <script>
 // ═══════════════════════════════════════════════
-// マルチプレイヤー設定（デプロイ時はURLを変更）
+// マルチプレイヤー設定
+// Vercelの環境変数 MP_SERVER_URL で上書き可能
 // ═══════════════════════════════════════════════
 var MULTIPLAYER_SERVER_URL = 'ws://localhost:8080';
+var _configLoaded = false;
+var _configPromise = (function() {
+  return fetch('/api/config')
+    .then(function(r) { return r.json(); })
+    .then(function(cfg) {
+      if (cfg && cfg.mpServerUrl) MULTIPLAYER_SERVER_URL = cfg.mpServerUrl;
+      _configLoaded = true;
+    })
+    .catch(function() { _configLoaded = true; });
+})();
 
 var mpState = {
   enabled: false,
@@ -2065,7 +2076,10 @@ document.getElementById('modeSolo').onclick=function(){
 document.getElementById('modeMulti').onclick=function(){
   mpState.enabled=true;hideAll();
   document.getElementById('mpScreen').classList.remove('hidden');
-  if(!mpState.connected) mpConnectAndSetup();
+  function doConnect(){ if(!mpState.connected) mpConnectAndSetup(); }
+  if(_configLoaded){ doConnect(); }
+  else if(_configPromise){ _configPromise.then(doConnect).catch(doConnect); }
+  else { doConnect(); }
 };
 document.getElementById('mpCreateRoom').onclick=function(){
   if(!mpState.connected){mpSetStatus('接続中...',false);mpConnectAndSetup();

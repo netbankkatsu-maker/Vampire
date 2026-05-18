@@ -1,7 +1,7 @@
 {
-  "name": "dark-survivor-server",
+  "name": "dark-survivor",
   "version": "1.0.0",
-  "description": "WebSocket relay server for Dark Survivor multiplayer",
+  "description": "DARK SURVIVOR – Vampire Survivors style game with multiplayer",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
