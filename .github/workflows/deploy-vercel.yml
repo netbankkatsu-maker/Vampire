@@ -5,6 +5,7 @@ on:
     branches:
       - claude/init-vampire-repo-UEyT0
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -12,11 +13,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
       - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./
+        run: |
+          vercel --token=${{ secrets.VERCEL_TOKEN }} \
+                 --yes \
+                 --prod \
+                 --name=dark-survivor
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Set MP_SERVER_URL env var on Vercel
+        run: |
+          echo "${{ secrets.RENDER_SERVER_URL }}" | \
+          vercel env add MP_SERVER_URL production \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --yes 2>/dev/null || true

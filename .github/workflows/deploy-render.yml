@@ -5,6 +5,7 @@ on:
     branches:
       - claude/init-vampire-repo-UEyT0
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -12,4 +13,5 @@ jobs:
     steps:
       - name: Trigger Render Deploy
         run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          echo "Render deploy triggered"
