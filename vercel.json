@@ -1,9 +1,13 @@
 {
+  "builds": [
+    { "src": "vampire-survivors.html", "use": "@vercel/static" },
+    { "src": "api/*.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/(.*)", "dest": "/vampire-survivors.html" }
+  ],
   "env": {
     "MP_SERVER_URL": "wss://vampire-ezs2.onrender.com"
-  },
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/:path*" },
-    { "source": "/(.*)", "destination": "/vampire-survivors.html" }
-  ]
+  }
 }
