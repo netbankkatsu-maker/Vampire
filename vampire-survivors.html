@@ -1544,7 +1544,6 @@ function drawGame(g){
   for(let x=sx0;x<cx+W;x+=gs){ctx.beginPath();ctx.moveTo(x-cx,0);ctx.lineTo(x-cx,H);ctx.stroke();}
   for(let y=sy0;y<cy+H;y+=gs){ctx.beginPath();ctx.moveTo(0,y-cy);ctx.lineTo(W,y-cy);ctx.stroke();}
 
-  const now=Date.now();
   // 休憩画面
   if(g.betweenWave){
     ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(0,0,W,H);
@@ -1699,6 +1698,12 @@ function endGame(cleared){
   if(!game||!game.running) return;
   game.running=false;cancelAnimationFrame(raf);
   saveData.coins+=game.coinEarned;writeSave(saveData);
+  if(mpState.enabled){
+    if(mpState.isHost) MPClient.send({type:'game_ended'});
+    MPClient.disconnect();
+    mpState.enabled=false;mpState.roomId=null;mpState.players=[];
+    mpState.otherPlayerStates={};mpState.hostEnemyStates=[];
+  }
   hideAll();
   document.getElementById('resultTitle').textContent=cleared?'🏆 WAVE 20 CLEAR!':'💀 GAME OVER';
   document.getElementById('resultTitle').style.color=cleared?'#f0d070':'#cc2200';
@@ -1802,6 +1807,8 @@ function mpHandleServerMessage(msg) {
       mpRefreshPlayerList();break;
     case 'game_started':
       mpState.gameSeed=msg.seed;mpStartMultiGame();break;
+    case 'game_ended':
+      if(game&&game.running) endGame(false);break;
     case 'relayed':
       mpHandleRelayedMessage(msg.fromSocketId,msg.payload);break;
     case 'error':
