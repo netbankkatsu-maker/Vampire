@@ -77,7 +77,7 @@ function removePlayerFromRoom(socketId) {
 
   broadcastToAll(roomId, { type: 'player_left', socketId: socketId });
 
-  if (socketId === room.hostSocketId && room.state === 'waiting') {
+  if (socketId === room.hostSocketId) {
     var newHost = room.players[0];
     room.hostSocketId = newHost.socketId;
     broadcastToAll(roomId, { type: 'host_changed', newHostSocketId: newHost.socketId });
