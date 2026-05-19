@@ -1360,14 +1360,13 @@ const PLAYER_SPRITE_KEY = {
   knight:'player_iron_knight', witch:'player_night_witch', rogue:'player_shadow',
   archer:'player_bone_archer', mage:'player_arcane_mage', paladin:'player_paladin',
 };
-// Source pixel row to crop each enemy sprite to (removes name text / decorative frame at bottom)
-// h=183 sprites: character body ends ~row 120, text at rows 133-154 → crop at row 132
-// h=180 sprites: character body ends ~row 107, name plate frame at rows 125-153 → crop at row 124
+// Source pixel row to crop each enemy sprite to (removes name text at bottom of each PNG)
+// Values determined by detecting first sparse row (<=7 visible pixels) after the character body
 const ENEMY_SPRITE_CROP = {
-  enemy_zombie:132, enemy_bat:132, enemy_skeleton:132, enemy_slime:132, enemy_demon:132,
-  enemy_witch:132, enemy_ghost:132, enemy_golem:132, enemy_werewolf:132, enemy_medusa:132,
-  enemy_vampire:124, enemy_shade:124, enemy_elemental:124, enemy_gargoyle:124, enemy_lich:124,
-  enemy_mimic:124, enemy_banshee:124, enemy_hydra:124, enemy_revenant:124,
+  enemy_zombie:121, enemy_bat:78, enemy_skeleton:121, enemy_slime:109, enemy_demon:121,
+  enemy_witch:121, enemy_ghost:114, enemy_golem:121, enemy_werewolf:121, enemy_medusa:121,
+  enemy_vampire:74, enemy_shade:73, enemy_elemental:73, enemy_gargoyle:74, enemy_lich:74,
+  enemy_mimic:74, enemy_banshee:73, enemy_hydra:74, enemy_revenant:74,
 };
 
 // ── スプライト描画ヘルパー ──
