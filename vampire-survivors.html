@@ -1369,6 +1369,11 @@ const ENEMY_SPRITE_CROP = {
   enemy_mimic:74, enemy_banshee:73, enemy_hydra:74, enemy_revenant:74,
 };
 
+// icon_revive has gray text labels at rows 3-38, colored phoenix fire at rows 69-124
+const EFFECT_SPRITE_CROP = {
+  icon_revive: {srcY:69, srcH:56},
+};
+
 // ── スプライト描画ヘルパー ──
 function drawSprite(key, cx, cy, drawW, drawH, alpha=1, srcCropH=0){
   const img = IMGS[key];
@@ -1586,7 +1591,12 @@ function drawGame(g){
       const eImg=IMGS[pt.effectKey];
       if(eImg&&eImg.complete&&eImg.naturalWidth>0){
         ctx.globalAlpha=Math.max(0,Math.min(1,pt.life*1.5));
-        ctx.drawImage(eImg,px2-pt.size/2,py2-pt.size/2,pt.size,pt.size);
+        const eCrop=EFFECT_SPRITE_CROP[pt.effectKey];
+        if(eCrop){
+          ctx.drawImage(eImg,0,eCrop.srcY,eImg.naturalWidth,eCrop.srcH,px2-pt.size/2,py2-pt.size/2,pt.size,pt.size);
+        } else {
+          ctx.drawImage(eImg,px2-pt.size/2,py2-pt.size/2,pt.size,pt.size);
+        }
         ctx.globalAlpha=1;
         continue;
       }
