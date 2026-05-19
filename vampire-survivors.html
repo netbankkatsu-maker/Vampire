@@ -1360,13 +1360,27 @@ const PLAYER_SPRITE_KEY = {
   knight:'player_iron_knight', witch:'player_night_witch', rogue:'player_shadow',
   archer:'player_bone_archer', mage:'player_arcane_mage', paladin:'player_paladin',
 };
+// Source pixel row to crop each enemy sprite to (removes name text / decorative frame at bottom)
+// h=183 sprites: character body ends ~row 120, text at rows 133-154 → crop at row 132
+// h=180 sprites: character body ends ~row 107, name plate frame at rows 125-153 → crop at row 124
+const ENEMY_SPRITE_CROP = {
+  enemy_zombie:132, enemy_bat:132, enemy_skeleton:132, enemy_slime:132, enemy_demon:132,
+  enemy_witch:132, enemy_ghost:132, enemy_golem:132, enemy_werewolf:132, enemy_medusa:132,
+  enemy_vampire:124, enemy_shade:124, enemy_elemental:124, enemy_gargoyle:124, enemy_lich:124,
+  enemy_mimic:124, enemy_banshee:124, enemy_hydra:124, enemy_revenant:124,
+};
 
 // ── スプライト描画ヘルパー ──
-function drawSprite(key, cx, cy, drawW, drawH, alpha=1){
+function drawSprite(key, cx, cy, drawW, drawH, alpha=1, srcCropH=0){
   const img = IMGS[key];
   if(!img || !img.complete || img.naturalWidth===0) return false;
   ctx.globalAlpha = alpha;
-  ctx.drawImage(img, cx - drawW/2, cy - drawH/2, drawW, drawH);
+  if(srcCropH > 0 && srcCropH < img.naturalHeight){
+    const ratio = srcCropH / img.naturalHeight;
+    ctx.drawImage(img, 0, 0, img.naturalWidth, srcCropH, cx - drawW/2, cy - drawH*ratio/2, drawW, drawH*ratio);
+  } else {
+    ctx.drawImage(img, cx - drawW/2, cy - drawH/2, drawW, drawH);
+  }
   ctx.globalAlpha = 1;
   return true;
 }
@@ -1389,7 +1403,7 @@ function drawEnemy(e, sx, sy){
     drawSprite(sKey, sx, sy, e.size*5, e.size*5, alpha);
   } else {
     const sKey = ENEMY_SPRITE_KEY[e.type];
-    if(sKey) drawSprite(sKey, sx, sy, e.size*3.2, e.size*3.2, alpha);
+    if(sKey) drawSprite(sKey, sx, sy, e.size*3.2, e.size*3.2, alpha, ENEMY_SPRITE_CROP[sKey]||0);
   }
 
   // HPバー（ボス以外、画面内のみ）
