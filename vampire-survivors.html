@@ -1939,7 +1939,7 @@ function mpBroadcastState() {
   }
   MPClient.send({type:'relay',payload:{t:'host_state',enemies:enemies,
     player:{x:Math.round(game.player.x),y:Math.round(game.player.y),hp:Math.round(game.player.hp),maxHp:game.player.maxHp,dead:game.player.dead,charId:selChar?selChar.id:'',wave:game.wave},
-    time:Math.round(game.time*10)/10}});
+    time:Math.round(game.time*10)/10,paused:game.paused||false}});
   if(mpState.pendingGuestHits&&mpState.pendingGuestHits.length>0){
     var hits=mpState.pendingGuestHits.splice(0);
     for(var h=0;h<hits.length;h++){
@@ -1951,6 +1951,8 @@ function mpBroadcastState() {
 function mpApplyHostState(payload) {
   if(!game||!game.running) return;
   mpState.hostEnemyStates=payload.enemies||[];
+  if(payload.time !== undefined) game.time = payload.time;
+  if(payload.paused !== undefined) game.paused = payload.paused;
   if(payload.player&&mpState.players.length>0){
     var hostId=mpState.hostSocketId;
     if(hostId&&hostId!==mpState.mySocketId) mpState.otherPlayerStates[hostId]=payload.player;
